@@ -5,6 +5,8 @@ Usage:
     python -m dataflow.cli examples/branching.tac
     python -m dataflow.cli examples/branching.tac --analysis live
     python -m dataflow.cli examples/branching.tac --dot out.dot
+    python -m dataflow.cli                          # no file -> type a program interactively
+    python -m dataflow.cli --stdin < my_program.tac  # or pipe one in
 """
 
 import argparse
@@ -24,10 +26,24 @@ ANALYSES = {
 }
 
 
-def run(tacfile, which="all", dot_path=None):
-    with open(tacfile) as f:
-        source = f.read()
+def read_source_interactively():
+    """Prompts the user to type a TAC program directly into the terminal."""
+    print("No file given -- type your TAC program below.")
+    print("Finish with a line containing only END, or press Ctrl+D.")
+    lines = []
+    try:
+        while True:
+            line = input()
+            if line.strip() == "END":
+                break
+            lines.append(line)
+    except EOFError:
+        pass
+    return "\n".join(lines)
 
+
+def run_source(source, which="all", dot_path=None):
+    """Runs the framework on TAC source text, regardless of where it came from."""
     instrs = ir.parse_program(source)
     cfg = cfg_mod.build_cfg(instrs)
 
@@ -46,13 +62,32 @@ def run(tacfile, which="all", dot_path=None):
         visualizer.print_results(cfg, analysis.__class__.__name__, IN, OUT, analysis, steps)
 
 
+def run(tacfile, which="all", dot_path=None):
+    """Runs the framework on a TAC file on disk. Kept for backward compatibility."""
+    with open(tacfile) as f:
+        source = f.read()
+    run_source(source, which, dot_path)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Generic Data-Flow Analysis Framework")
-    parser.add_argument("tacfile", help="path to a .tac source file")
+    parser.add_argument("tacfile", nargs="?", default=None,
+                         help="path to a .tac source file (omit to type a program interactively)")
+    parser.add_argument("--stdin", action="store_true",
+                         help="read the TAC program from standard input (e.g. piped in)")
     parser.add_argument("--analysis", choices=list(ANALYSES) + ["all"], default="all")
     parser.add_argument("--dot", help="also write the CFG to this .dot file", default=None)
     args = parser.parse_args(argv)
-    run(args.tacfile, args.analysis, args.dot)
+
+    if args.tacfile:
+        with open(args.tacfile) as f:
+            source = f.read()
+    elif args.stdin:
+        source = sys.stdin.read()
+    else:
+        source = read_source_interactively()
+
+    run_source(source, args.analysis, args.dot)
 
 
 if __name__ == "__main__":
