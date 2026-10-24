@@ -13,6 +13,7 @@ Supported syntax (one instruction per line, '#' starts a comment):
     x = 5                   constant assignment
     x = y                   copy assignment
     x = y + z               binary-op assignment (+ - * / %)
+    x = -y                  unary negation of a variable (desugars to x = 0 - y)
     if x < y goto L2        conditional jump (== != < <= > >=)
     goto L3                 unconditional jump
     return x                return (x optional)
@@ -30,6 +31,7 @@ _COND_RE = re.compile(
 )
 _BINOP_RE = re.compile(r"^(\S+)\s*([+\-*/%])\s*(\S+)$")
 _ASSIGN_RE = re.compile(r"^(\S+)\s*=\s*(.+)$")
+_UNARY_NEG_RE = re.compile(r"^-(\S+)$")
 
 
 class ParseError(ValueError):
@@ -127,6 +129,18 @@ def parse_line(line: str, lineno: int) -> Optional[Instr]:
 
     if is_const(rhs):
         return Instr(kind="assign", dst=dst, op="const", src1=rhs, src2=None,
+                     text=raw, lineno=lineno)
+
+    m3 = _UNARY_NEG_RE.match(rhs)
+    if m3:
+        # Unary negation of a variable (a literal negative constant like
+        # "-5" was already handled above by is_const). Desugar to the
+        # equivalent binop "0 - <operand>" so it reuses the existing binop
+        # machinery everywhere else -- uses()/defs(), every analysis's
+        # transfer function, and constant folding -- with no special
+        # casing needed outside the parser.
+        operand = m3.group(1)
+        return Instr(kind="assign", dst=dst, op="-", src1="0", src2=operand,
                      text=raw, lineno=lineno)
 
     if re.match(r"^\S+$", rhs):
