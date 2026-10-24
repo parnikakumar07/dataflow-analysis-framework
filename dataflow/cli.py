@@ -79,16 +79,26 @@ def main(argv=None):
     parser.add_argument("--dot", help="also write the CFG to this .dot file", default=None)
     args = parser.parse_args(argv)
 
-    if args.tacfile:
-        with open(args.tacfile) as f:
-            source = f.read()
-    elif args.stdin:
-        source = sys.stdin.read()
-    else:
-        source = read_source_interactively()
+    try:
+        if args.tacfile:
+            with open(args.tacfile) as f:
+                source = f.read()
+        elif args.stdin:
+            source = sys.stdin.read()
+        else:
+            source = read_source_interactively()
 
-    run_source(source, args.analysis, args.dot)
+        run_source(source, args.analysis, args.dot)
+    except FileNotFoundError as exc:
+        print(f"Error: {exc.strerror.lower()}: {exc.filename!r}", file=sys.stderr)
+        return 1
+    except (ir.ParseError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
+    
