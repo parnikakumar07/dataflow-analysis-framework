@@ -26,6 +26,17 @@ class TestParser(unittest.TestCase):
         i = ir.parse_line("x = -5", 1)
         self.assertEqual((i.kind, i.op, i.src1), ("assign", "const", "-5"))
 
+    def test_unary_minus_on_variable_desugars_to_a_zero_minus_binop(self):
+        # x = -y is not a literal constant (that's handled above) and not a
+        # plain copy -- it must become the equivalent binop x = 0 - y so it
+        # flows through the existing binop machinery (uses/defs, every
+        # analysis's transfer function, constant folding) with no special
+        # casing anywhere else in the codebase.
+        i = ir.parse_line("x = -y", 1)
+        self.assertEqual((i.kind, i.op, i.src1, i.src2), ("assign", "-", "0", "y"))
+        self.assertEqual(i.uses(), {"y"})
+        self.assertEqual(i.defs(), {"x"})
+
     def test_cond_jump(self):
         i = ir.parse_line("if x < y goto L2", 1)
         self.assertEqual(i.kind, "cond_jump")
