@@ -53,6 +53,32 @@ class TestAvailableExpressions(unittest.TestCase):
         self.assertIn(("x", "+", "y"), OUT[l_true])
 
 
+class TestAvailableExpressionsCommutativity(unittest.TestCase):
+    def test_commutative_expression_recognized_across_both_orderings(self):
+        # a+b and b+a compute the same value -- one branch writes it as
+        # "a + b", the other as "b + a". A must-analysis that doesn't
+        # normalize commutative operands would treat these as two
+        # different expressions and (wrongly) conclude neither is
+        # available at the merge point.
+        src = "if x < y goto L1\nz = a + b\ngoto L2\nL1:\nz = b + a\nL2:\nw = z\nreturn w\n"
+        g = cfg_mod.build_cfg(ir.parse_program(src))
+        IN, OUT, _ = solver.solve(g, analyses.AvailableExpressions(g))
+        l2 = block(g, "L2")
+        matches = [e for e in IN[l2] if e[1] == "+" and set((e[0], e[2])) == {"a", "b"}]
+        self.assertEqual(len(matches), 1, f"expected exactly one canonical a+b key, got {IN[l2]}")
+
+    def test_non_commutative_expression_stays_distinct_across_orderings(self):
+        # a-b and b-a are NOT the same value -- this must keep behaving
+        # like a normal must-analysis: since each branch only computes one
+        # ordering, neither should be "available" at the merge.
+        src = "if x < y goto L1\nz = a - b\ngoto L2\nL1:\nz = b - a\nL2:\nw = z\nreturn w\n"
+        g = cfg_mod.build_cfg(ir.parse_program(src))
+        IN, OUT, _ = solver.solve(g, analyses.AvailableExpressions(g))
+        l2 = block(g, "L2")
+        self.assertNotIn(("a", "-", "b"), IN[l2])
+        self.assertNotIn(("b", "-", "a"), IN[l2])
+
+
 class TestLiveVariables(unittest.TestCase):
     def test_dead_store_has_empty_liveness_after_return(self):
         g = load("examples/sequential.tac")
