@@ -13,6 +13,23 @@ from .ir import BIN_OPS
 UNDEF = "UNDEF"   # top of the constant-propagation lattice (no info yet)
 NAC = "NAC"       # bottom of the lattice (provably not a single constant)
 
+COMMUTATIVE_OPS = {"+", "*"}  # a+b == b+a and a*b == b*a; -, /, % are not
+
+
+def expr_key(src1, op, src2):
+    """
+    Canonical key for an expression's (src1, op, src2) triple. For a
+    commutative operator, a+b and b+a compute the same value and must map
+    to the same key so AvailableExpressions recognizes them as the same
+    expression regardless of which operand order the source happened to
+    use. Non-commutative operators (-, /, %) are left as-is: a-b and b-a
+    are genuinely different values.
+    """
+    if op in COMMUTATIVE_OPS:
+        a, b = sorted((src1, src2), key=str)
+        return (a, op, b)
+    return (src1, op, src2)
+
 
 class DataFlowAnalysis:
     direction = None  # 'forward' or 'backward'
@@ -94,7 +111,7 @@ class AvailableExpressions(DataFlowAnalysis):
         for b in cfg.blocks:
             for ins in b.instrs:
                 if ins.kind == "assign" and ins.op in BIN_OPS:
-                    universe.add((ins.src1, ins.op, ins.src2))
+                    universe.add(expr_key(ins.src1, ins.op, ins.src2))
         self.universe = frozenset(universe)
 
         self.gen = {}
@@ -105,7 +122,7 @@ class AvailableExpressions(DataFlowAnalysis):
             for ins in b.instrs:
                 if ins.kind == "assign":
                     if ins.op in BIN_OPS:
-                        gen_b.add((ins.src1, ins.op, ins.src2))
+                        gen_b.add(expr_key(ins.src1, ins.op, ins.src2))
                     var = ins.dst
                     defined_vars.add(var)
                     gen_b = {e for e in gen_b if var not in (e[0], e[2])}
