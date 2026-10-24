@@ -26,7 +26,6 @@ maps one-to-one onto the five-layer pipeline from the Review 1 slide deck
 - [Testing](#testing)
 - [Architecture](#architecture)
 - [Extending the Framework](#extending-the-framework)
-- [Known Limitations](#known-limitations)
 
 ---
 
@@ -45,7 +44,11 @@ maps one-to-one onto the five-layer pipeline from the Review 1 slide deck
   non-zero exit code — never a raw Python traceback.
 - **Zero dependencies.** Standard library only. `pytest` is needed only to
   run the test suite, not the framework itself.
-- **39 automated tests** — 31 unit tests exercising the parser, CFG
+- **Correct on commutative and unary expressions.** `AvailableExpressions`
+  recognizes `a + b` and `b + a` as the same expression, and `x = -y`
+  (unary negation of a variable) is fully supported — see
+  [Writing Your Own .tac Programs](#writing-your-own-tac-programs).
+- **42 automated tests** — 34 unit tests exercising the parser, CFG
   builder, solver mechanics, and each analysis's correctness, plus 8
   integration tests that run the actual CLI as a subprocess.
 
@@ -65,11 +68,11 @@ examples/
   branching.tac    if/else merging back into one block
   looping.tac      a back-edge / loop
 tests/
-  test_ir.py            parser unit tests
+  test_ir.py            parser unit tests (34 unit tests total across these four files)
   test_cfg.py           CFG construction unit tests
   test_solver.py        solver mechanics unit tests
   test_analyses.py      hand-derived correctness per analysis
-  test_integration.py   black-box CLI tests (subprocess-level)
+  test_integration.py   black-box CLI tests (subprocess-level, 8 tests)
 WORKDONE.md      internal team progress log (not a substitute for commits)
 ```
 
@@ -214,6 +217,7 @@ L1:                     label
 x = 5                   constant assignment
 x = y                   copy assignment
 x = y + z               binary op: + - * / %
+x = -y                  unary negation (desugars to x = 0 - y internally)
 if x < y goto L2        conditional jump: == != < <= > >=
 goto L3                 unconditional jump
 return x                return (x optional)
@@ -227,13 +231,16 @@ pip install pytest        # only needed for the test suite itself
 python3 -m pytest tests/ -v
 ```
 
-**39/39 tests passing** as delivered:
+**42/42 tests passing** as delivered:
 
-- `test_ir.py`, `test_cfg.py`, `test_solver.py`, `test_analyses.py` (31
+- `test_ir.py`, `test_cfg.py`, `test_solver.py`, `test_analyses.py` (34
   tests) — unit tests calling the parser, CFG builder, solver, and
   analyses directly, including edge cases added for Review 3: an empty
   program, a function with multiple `return` statements (multiple CFG
-  exits), and a block left unreachable by an unconditional jump.
+  exits), a block left unreachable by an unconditional jump, unary
+  negation desugaring to the equivalent binop, and `AvailableExpressions`
+  recognizing `a + b` and `b + a` as the same expression (with a
+  regression test confirming `a - b` and `b - a` correctly stay distinct).
 - `test_integration.py` (8 tests) — black-box tests that invoke
   `python3 -m dataflow.cli` as a real subprocess, exactly as it would be
   run at a demo: file mode, `--stdin` mode, interactive mode, `--dot`
@@ -266,14 +273,3 @@ Adding a fifth analysis requires no changes to the solver:
 `solver.py` is untouched by this — that separation of the generic engine
 from the per-analysis logic is the core design goal of the "generic
 framework" problem statement.
-
-## Known Limitations
-
-These are documented scope decisions, not bugs — both were deliberately
-tested and confirmed to behave as described, not assumed:
-
-- **No commutative expression normalization.** `AvailableExpressions` keys
-  expressions as literal `(src1, op, src2)` tuples, so `a + b` and `b + a`
-  are tracked as distinct expressions.
-- **No unary minus on a variable.** The parser supports a literal negative
-  constant (`x = -5`) but not unary negation of a variable (`x = -y`).
