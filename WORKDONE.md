@@ -68,9 +68,23 @@ them (`test_ir.py`, `test_analyses.py`).
 solver mechanics, per-analysis correctness — + 8 integration tests).
 - **Next:** Review 3 report/demo-sequence integration work.
 
+
 ## Amrutha — TAC Parsing / IR / CFG Construction
 
-_(add your entries here)_
+**2026-10-25**
+- Improved TAC parser validation to reject malformed labels and invalid or chained binary expressions.
+- Updated CFG basic-block construction to detect duplicate labels while preserving undefined jump-target validation.
+- Added regression tests in `tests/test_ir.py` and `tests/test_cfg.py`.
+- Verified the parser, CFG construction, and full test suite.
+- Updated the README to document parser validation, CFG validation, usage, and test coverage.
+- Changes pushed to branch `amrutha-parser-cfg-tests` (commit `c94f83a`).
+
+**Integration verification**
+- Ran the sequential, branching, and looping TAC examples through the CLI.
+- Ran the complete automated test suite and recorded the resulting test count.
+
+
+
 
 ## Khushi — Generic Worklist Solver & Architecture
 

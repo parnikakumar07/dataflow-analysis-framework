@@ -61,6 +61,21 @@ class TestParser(unittest.TestCase):
         with self.assertRaises(ir.ParseError):
             ir.parse_line("this is not valid tac !!", 1)
 
+    def test_empty_label_raises(self):
+        with self.assertRaises(ir.ParseError):
+            ir.parse_line(":", 1)
+
+    def test_invalid_label_raises(self):
+        with self.assertRaises(ir.ParseError):
+            ir.parse_line("L 1:", 1)
+
+    def test_multiple_binary_operators_raise(self):
+        with self.assertRaises(ir.ParseError):
+            ir.parse_line("x = a-b-c", 1)
+
+    def test_valid_binary_expression_still_works(self):
+        i = ir.parse_line("x = a - b", 1)
+        self.assertEqual((i.op, i.src1, i.src2), ("-", "a", "b"))
 
 if __name__ == "__main__":
     unittest.main()

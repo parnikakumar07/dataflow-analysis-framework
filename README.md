@@ -1,3 +1,4 @@
+
 # Generic Data-Flow Analysis Framework
 
 **BCSE307 Compiler Design — Project A34 — Team 9**
@@ -39,22 +40,27 @@ maps one-to-one onto the five-layer pipeline from the Review 1 slide deck
 - **Multiple input modes:** read from a file, pipe a program in via
   `--stdin`, or type one interactively at the terminal.
 - **CFG export:** emit the control-flow graph as a Graphviz `.dot` file.
-- **Clean failure on bad input.** Malformed lines, undefined jump targets,
-  and missing files all produce a short `Error: ...` message and a
-  non-zero exit code — never a raw Python traceback.
+- **Clean failure on bad input.** Malformed TAC instructions, invalid labels,
+  duplicate labels, undefined jump targets, and missing files produce a
+  short `Error: ...` message and a non-zero exit code — never a raw Python
+  traceback.
+- **Parser validation.** Rejects malformed labels and invalid or chained
+  binary expressions rather than silently accepting malformed TAC.
+- **CFG validation.** Detects duplicate labels and undefined jump targets
+  during basic-block and control-flow graph construction.
 - **Zero dependencies.** Standard library only. `pytest` is needed only to
   run the test suite, not the framework itself.
 - **Correct on commutative and unary expressions.** `AvailableExpressions`
   recognizes `a + b` and `b + a` as the same expression, and `x = -y`
   (unary negation of a variable) is fully supported — see
   [Writing Your Own .tac Programs](#writing-your-own-tac-programs).
-- **42 automated tests** — 34 unit tests exercising the parser, CFG
-  builder, solver mechanics, and each analysis's correctness, plus 8
-  integration tests that run the actual CLI as a subprocess.
+- **47 automated tests:** 39 unit tests exercising the parser, CFG builder,
+  solver mechanics, and each analysis's correctness, plus 8 integration tests
+  that run the actual CLI as a subprocess.
 
 ## Project Structure
 
-```
+```text
 dataflow/
   ir.py          IR / TAC Parser        -> parses .tac text into Instr objects
   cfg.py         Basic Block + CFG      -> leader algorithm, builds the CFG
@@ -68,13 +74,16 @@ examples/
   branching.tac    if/else merging back into one block
   looping.tac      a back-edge / loop
 tests/
-  test_ir.py            parser unit tests (34 unit tests total across these four files)
-  test_cfg.py           CFG construction unit tests
-  test_solver.py        solver mechanics unit tests
-  test_analyses.py      hand-derived correctness per analysis
-  test_integration.py   black-box CLI tests (subprocess-level, 8 tests)
+  test_ir.py            parser unit tests
+  test_cfg.py            CFG construction unit tests
+  test_solver.py         solver mechanics unit tests
+  test_analyses.py       hand-derived correctness per analysis
+  test_integration.py    black-box CLI tests (subprocess-level, 8 tests)
 WORKDONE.md      internal team progress log (not a substitute for commits)
 ```
+
+The four unit-test files contain 39 tests in total. The integration test file
+contains 8 tests.
 
 ## Installation
 
@@ -128,7 +137,7 @@ python3 -m dataflow.cli
 
 Given `examples/sequential.tac`:
 
-```
+```text
 # Straight-line code, no branches -- one basic block.
 x = 1
 y = 2
@@ -139,7 +148,7 @@ return w
 
 Running Constant Propagation on it:
 
-```bash
+```text
 $ python3 -m dataflow.cli examples/sequential.tac --analysis constprop
 Parsed 5 instructions into 1 basic blocks.
 Blocks: B0
@@ -158,7 +167,7 @@ Blocks: B0
 
 Given a branching program (`examples/branching.tac`):
 
-```
+```text
 # Simple if/else merging back into one block.
 x = 1
 y = 2
@@ -175,7 +184,7 @@ return w
 Running Reaching Definitions on it shows the two branches' definitions of
 `z` both reaching the merge point, `L_end`:
 
-```bash
+```text
 $ python3 -m dataflow.cli examples/branching.tac --analysis reaching
 Parsed 10 instructions into 4 basic blocks.
 Blocks: B0, B3, L_true, L_end
@@ -206,13 +215,13 @@ Blocks: B0, B3, L_true, L_end
   (converged in 4 worklist steps, 4 blocks)
 ```
 
-Notice `L_end`'s `IN` set correctly contains **both** `('B3', 0, 'z')` and
+Notice `L_end`'s `IN` set correctly contains both `('B3', 0, 'z')` and
 `('L_true', 1, 'z')` — the definition of `z` reaches the merge point along
 either branch, which is exactly what a "may" / union analysis should do.
 
 ## Writing Your Own .tac Programs
 
-```
+```text
 L1:                     label
 x = 5                   constant assignment
 x = y                   copy assignment
@@ -224,29 +233,38 @@ return x                return (x optional)
 # comment
 ```
 
+Labels must be valid and unique within a program. Every jump target must
+refer to a defined label. Malformed instructions and invalid or chained
+binary expressions are rejected by the parser.
+
 ## Testing
 
+Install `pytest` only if it is not already available:
+
 ```bash
-pip install pytest        # only needed for the test suite itself
-python3 -m pytest tests/ -v
+pip install pytest
+python -m pytest -q
 ```
 
-**42/42 tests passing** as delivered:
+**47/47 tests passing** in the current verified test run:
 
-- `test_ir.py`, `test_cfg.py`, `test_solver.py`, `test_analyses.py` (34
-  tests) — unit tests calling the parser, CFG builder, solver, and
-  analyses directly, including edge cases added for Review 3: an empty
-  program, a function with multiple `return` statements (multiple CFG
-  exits), a block left unreachable by an unconditional jump, unary
-  negation desugaring to the equivalent binop, and `AvailableExpressions`
-  recognizing `a + b` and `b + a` as the same expression (with a
-  regression test confirming `a - b` and `b - a` correctly stay distinct).
+- `test_ir.py`, `test_cfg.py`, `test_solver.py`, and `test_analyses.py`
+  (39 tests) — unit tests calling the parser, CFG builder, solver, and
+  analyses directly. These cover edge cases such as malformed input,
+  invalid labels, chained binary expressions, duplicate CFG labels,
+  an empty program, multiple `return` statements (multiple CFG exits),
+  a block left unreachable by an unconditional jump, unary negation
+  desugaring to the equivalent binary operation, and `AvailableExpressions`
+  recognizing `a + b` and `b + a` as the same expression while keeping
+  `a - b` and `b - a` distinct.
 - `test_integration.py` (8 tests) — black-box tests that invoke
-  `python3 -m dataflow.cli` as a real subprocess, exactly as it would be
-  run at a demo: file mode, `--stdin` mode, interactive mode, `--dot`
-  export, and — found via test-driven development — confirming the CLI
-  fails cleanly on malformed input or an undefined label instead of
-  leaking a raw Python traceback.
+  `python -m dataflow.cli` as a real subprocess. These cover file mode,
+  `--stdin` mode, interactive mode, `--dot` export, and clean failure on
+  malformed input or an undefined label instead of leaking a raw Python
+  traceback.
+
+The test suite checks parser and CFG validation, analysis correctness,
+solver behavior, and CLI integration.
 
 ## Architecture
 
@@ -271,5 +289,5 @@ Adding a fifth analysis requires no changes to the solver:
 3. Register it in the `ANALYSES` dict in `cli.py`.
 
 `solver.py` is untouched by this — that separation of the generic engine
-from the per-analysis logic is the core design goal of the "generic
-framework" problem statement.
+from the per-analysis logic is the core design goal of the generic framework
+problem statement.

@@ -61,6 +61,9 @@ class TestCFG(unittest.TestCase):
         self.assertNotIn(unreachable, g.exits)
         self.assertNotIn(unreachable, [p for p in g.preds[g.entry]])
 
+    def test_duplicate_labels_raise(self):
+        with self.assertRaises(ValueError):
+            build("L1:\nx = 1\nL1:\nreturn x\n")
 
 if __name__ == "__main__":
     unittest.main()
