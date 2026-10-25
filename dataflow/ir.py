@@ -1,11 +1,11 @@
+
 """
 IR / TAC Parser
 ---------------
 Reads a small, explicit three-address-code (TAC) text format and produces
 a flat list of Instr objects. This is intentionally minimal (no types, no
-function calls, no arrays) so the CFG builder and analyses stay simple and
-verifiable by hand -- exactly the "controlled IR/TAC subset" scope from the
-Review 1 feasibility slide.
+function calls, no arrays) so the CFG builder and analyses stay simple
+and verifiable by hand.
 
 Supported syntax (one instruction per line, '#' starts a comment):
 
@@ -13,13 +13,13 @@ Supported syntax (one instruction per line, '#' starts a comment):
     x = 5                   constant assignment
     x = y                   copy assignment
     x = y + z               binary-op assignment (+ - * / %)
-    x = -y                  unary negation of a variable (desugars to x = 0 - y)
+    x = -y                  unary negation of a variable
     if x < y goto L2        conditional jump (== != < <= > >=)
     goto L3                 unconditional jump
     return x                return (x optional)
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, Tuple
 import re
 
@@ -38,6 +38,12 @@ class ParseError(ValueError):
     pass
 
 
+def is_valid_operand(token: Optional[str]) -> bool:
+    if token is None:
+        return False
+    return bool(re.fullmatch(r"[A-Za-z_]\w*|-?\d+", token))
+
+
 def is_const(token: Optional[str]) -> bool:
     if token is None:
         return False
@@ -50,14 +56,14 @@ def is_const(token: Optional[str]) -> bool:
 
 @dataclass
 class Instr:
-    kind: str                              # label | assign | cond_jump | jump | return
+    kind: str
     dst: Optional[str] = None
-    op: Optional[str] = None               # 'const' | 'copy' | one of BIN_OPS
+    op: Optional[str] = None
     src1: Optional[str] = None
     src2: Optional[str] = None
-    label: Optional[str] = None            # label name (for 'label') or jump target
-    cond: Optional[Tuple[str, str, str]] = None  # (left, relop, right) for cond_jump
-    text: str = ""                         # original source line, kept for printing
+    label: Optional[str] = None
+    cond: Optional[Tuple[str, str, str]] = None
+    text: str = ""
     lineno: int = 0
 
     def defs(self):
@@ -91,61 +97,128 @@ def parse_line(line: str, lineno: int) -> Optional[Instr]:
     if not raw:
         return None
 
+    # Label
     if raw.endswith(":"):
-        return Instr(kind="label", label=raw[:-1].strip(), text=raw, lineno=lineno)
+        name = raw[:-1].strip()
+        if not re.fullmatch(r"[A-Za-z_]\w*", name):
+            raise ParseError(f"line {lineno}: invalid label: {name!r}")
+        return Instr(kind="label", label=name, text=raw, lineno=lineno)
 
+    # Conditional jump
     if raw.startswith("if "):
         m = _COND_RE.match(raw)
         if not m:
-            raise ParseError(f"line {lineno}: malformed conditional jump: {raw!r}")
+            raise ParseError(
+                f"line {lineno}: malformed conditional jump: {raw!r}"
+            )
         left, relop, right, target = m.groups()
         if relop not in REL_OPS:
-            raise ParseError(f"line {lineno}: unknown relational operator {relop!r}")
-        return Instr(kind="cond_jump", cond=(left, relop, right), label=target,
-                     text=raw, lineno=lineno)
+            raise ParseError(
+                f"line {lineno}: unknown relational operator {relop!r}"
+            )
+        if not is_valid_operand(left) or not is_valid_operand(right):
+            raise ParseError(
+                f"line {lineno}: invalid conditional operands: {raw!r}"
+            )
+        if not re.fullmatch(r"[A-Za-z_]\w*", target):
+            raise ParseError(
+                f"line {lineno}: invalid jump target: {target!r}"
+            )
+        return Instr(
+            kind="cond_jump",
+            cond=(left, relop, right),
+            label=target,
+            text=raw,
+            lineno=lineno,
+        )
 
+    # Unconditional jump
     if raw.startswith("goto "):
         target = raw.split(None, 1)[1].strip()
+        if not re.fullmatch(r"[A-Za-z_]\w*", target):
+            raise ParseError(
+                f"line {lineno}: invalid jump target: {target!r}"
+            )
         return Instr(kind="jump", label=target, text=raw, lineno=lineno)
 
+    # Return
     if raw == "return" or raw.startswith("return "):
         parts = raw.split(None, 1)
         dst = parts[1].strip() if len(parts) > 1 else None
+        if dst is not None and not is_valid_operand(dst):
+            raise ParseError(f"line {lineno}: invalid return operand: {dst!r}")
         return Instr(kind="return", dst=dst, text=raw, lineno=lineno)
 
+    # Assignment
     m = _ASSIGN_RE.match(raw)
     if not m:
         raise ParseError(f"line {lineno}: cannot parse instruction: {raw!r}")
+
     dst, rhs = m.groups()
     rhs = rhs.strip()
 
-    m2 = _BINOP_RE.match(rhs)
+    if not re.fullmatch(r"[A-Za-z_]\w*", dst):
+        raise ParseError(f"line {lineno}: invalid assignment target: {dst!r}")
+
+    # Binary operation
+    m2 = _BINOP_RE.fullmatch(rhs)
     if m2:
         src1, op, src2 = m2.groups()
-        if op not in BIN_OPS:
-            raise ParseError(f"line {lineno}: unknown operator {op!r}")
-        return Instr(kind="assign", dst=dst, op=op, src1=src1, src2=src2,
-                     text=raw, lineno=lineno)
+        if not is_valid_operand(src1) or not is_valid_operand(src2):
+            raise ParseError(
+                f"line {lineno}: invalid binary operands: {rhs!r}"
+            )
+        return Instr(
+            kind="assign",
+            dst=dst,
+            op=op,
+            src1=src1,
+            src2=src2,
+            text=raw,
+            lineno=lineno,
+        )
 
+    # Constant assignment, including negative integer constants
     if is_const(rhs):
-        return Instr(kind="assign", dst=dst, op="const", src1=rhs, src2=None,
-                     text=raw, lineno=lineno)
+        return Instr(
+            kind="assign",
+            dst=dst,
+            op="const",
+            src1=rhs,
+            src2=None,
+            text=raw,
+            lineno=lineno,
+        )
 
-    m3 = _UNARY_NEG_RE.match(rhs)
+    # Unary negation: x = -y becomes x = 0 - y
+    m3 = _UNARY_NEG_RE.fullmatch(rhs)
     if m3:
-        # Unary negation of a variable (a literal negative constant like
-        # "-5" was already handled above by is_const). Desugar to the
-        # equivalent binop "0 - <operand>" so it reuses the existing binop
-        # machinery everywhere else -- uses()/defs(), every analysis's
-        # transfer function, and constant folding -- with no special
-        # casing needed outside the parser.
         operand = m3.group(1)
-        return Instr(kind="assign", dst=dst, op="-", src1="0", src2=operand,
-                     text=raw, lineno=lineno)
+        if not re.fullmatch(r"[A-Za-z_]\w*", operand):
+            raise ParseError(
+                f"line {lineno}: invalid unary negation operand: {operand!r}"
+            )
+        return Instr(
+            kind="assign",
+            dst=dst,
+            op="-",
+            src1="0",
+            src2=operand,
+            text=raw,
+            lineno=lineno,
+        )
 
-    if re.match(r"^\S+$", rhs):
-        return Instr(kind="assign", dst=dst, op="copy", src1=rhs, src2=None,
-                     text=raw, lineno=lineno)
+    # Copy assignment
+    if is_valid_operand(rhs) and not is_const(rhs):
+        return Instr(
+            kind="assign",
+            dst=dst,
+            op="copy",
+            src1=rhs,
+            src2=None,
+            text=raw,
+            lineno=lineno,
+        )
 
     raise ParseError(f"line {lineno}: cannot parse right-hand side: {rhs!r}")
 
