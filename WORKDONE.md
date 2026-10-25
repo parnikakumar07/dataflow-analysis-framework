@@ -88,13 +88,16 @@ solver mechanics, per-analysis correctness — + 8 integration tests).
 
 ## Khushi — Generic Worklist Solver & Architecture
 
-- Added a regression test verifying that the solver raises a `RuntimeError` when the configured iteration limit is exceeded.
-- Added a custom-analysis test verifying that a loop header is reprocessed when information propagates through a back edge.
-- Extended empty-program coverage to verify that the solver performs zero worklist iterations when there are no basic blocks.
-- Merged both contributions through pull requests.
-- Verified the full test suite: **69 tests passed**.
-- Existing generic solver implementation reviewed for forward/backward processing, boundary conditions, worklist scheduling, and iteration limits.
-- **Next:** Check for remaining correctness gaps and document the framework architecture where needed.
+**2026-10-25 — Extended Solver Coverage and Backward-Flow Fix**
+
+- Fixed backward data-flow solver edge handling so backward analyses use the CFG's actual predecessor and successor relationships correctly.
+- Added `tests/test_extended_coverage.py` with parameterized regression coverage for TAC parsing, instruction uses/definitions, constant propagation, available expressions, reaching definitions, live variables, CFG edges, and solver fixed-point equations.
+- Updated `tests/test_integration.py` to verify expected worklist-step counts for the analyses on sequential, branching, and looping examples.
+- Verified the complete test suite: **256 tests passed**.
+- Committed as `0956651` on branch `khushi-extend-coverage`; pull request created and merged into `main`.
+- Synced local `main` with the merged changes and reran the test suite successfully.
+
+**Status:** Generic worklist solver and extended regression coverage completed. No further solver changes are currently required unless new issues are identified during integration or review.
 
 ## Jani — Four Analyses — Correctness & Demonstration
 
