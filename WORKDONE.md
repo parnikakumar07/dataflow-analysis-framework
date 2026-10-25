@@ -88,7 +88,13 @@ solver mechanics, per-analysis correctness — + 8 integration tests).
 
 ## Khushi — Generic Worklist Solver & Architecture
 
-_(add your entries here)_
+- Added a regression test verifying that the solver raises a `RuntimeError` when the configured iteration limit is exceeded.
+- Added a custom-analysis test verifying that a loop header is reprocessed when information propagates through a back edge.
+- Extended empty-program coverage to verify that the solver performs zero worklist iterations when there are no basic blocks.
+- Merged both contributions through pull requests.
+- Verified the full test suite: **69 tests passed**.
+- Existing generic solver implementation reviewed for forward/backward processing, boundary conditions, worklist scheduling, and iteration limits.
+- **Next:** Check for remaining correctness gaps and document the framework architecture where needed.
 
 ## Jani — Four Analyses — Correctness & Demonstration
 
