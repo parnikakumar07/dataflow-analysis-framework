@@ -11,6 +11,7 @@ class TestSolverMechanics(unittest.TestCase):
         )
         self.assertEqual(IN, {})
         self.assertEqual(OUT, {})
+        self.assertEqual(steps, 0)
 
     def test_forward_boundary_condition_applies_only_to_entry(self):
         g = cfg_mod.build_cfg(
@@ -30,7 +31,6 @@ class TestSolverMechanics(unittest.TestCase):
             self.assertEqual(OUT[exit_block], frozenset())
 
     def test_backward_boundary_condition_applies_independently_to_every_exit(self):
-        # Every return block must receive its own backward boundary value.
         g = cfg_mod.build_cfg(
             ir.parse_program(
                 "if x < y goto L1\n"
@@ -46,7 +46,6 @@ class TestSolverMechanics(unittest.TestCase):
             self.assertEqual(OUT[exit_block], frozenset())
 
     def test_unreachable_block_is_still_solved_and_feeds_its_successor(self):
-        # The solver processes the CFG as given, including unreachable blocks.
         g = cfg_mod.build_cfg(
             ir.parse_program(
                 "goto L1\n"
@@ -68,7 +67,6 @@ class TestSolverMechanics(unittest.TestCase):
         self.assertIn((unreachable.name, 0, "x"), IN[l1])
 
     def test_iteration_limit_raises_runtime_error(self):
-        # A zero iteration limit must reject a non-empty worklist.
         g = cfg_mod.build_cfg(
             ir.parse_program("x = 1\n")
         )
@@ -76,6 +74,47 @@ class TestSolverMechanics(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "max_iterations"):
             solver.solve(g, rd, max_iterations=0)
+
+    def test_loop_header_is_reprocessed_when_back_edge_output_changes(self):
+        class SetPropagationAnalysis(analyses.DataFlowAnalysis):
+            direction = "forward"
+
+            def boundary_value(self):
+                return frozenset()
+
+            def top_value(self):
+                return frozenset()
+
+            def meet(self, values):
+                return frozenset().union(*values)
+
+            def transfer(self, block, value):
+                return value | frozenset({block.name})
+
+        g = cfg_mod.build_cfg(
+            ir.parse_program(
+                "x = 0\n"
+                "L_head:\n"
+                "if x < 2 goto L_body\n"
+                "return x\n"
+                "L_body:\n"
+                "x = 1\n"
+                "goto L_head\n"
+            )
+        )
+
+        IN, OUT, steps = solver.solve(g, SetPropagationAnalysis(g))
+
+        header = next(b for b in g.blocks if b.name == "L_head")
+        body = next(b for b in g.blocks if b.name == "L_body")
+
+        # The body contributes information to the header through the
+        # back edge, so the header must be processed again.
+        self.assertIn(header, g.preds[body])
+        self.assertIn(body, g.preds[header])
+        self.assertIn(body.name, OUT[body])
+        self.assertIn(body.name, IN[header])
+        self.assertGreater(steps, len(g.blocks))
 
 
 if __name__ == "__main__":
