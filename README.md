@@ -1,56 +1,38 @@
 # Generic Data-Flow Analysis Framework
 
-**BCSE307 Compiler Design — Project A34 — Team 9**
+A Python-based framework for performing classical data-flow analyses on Three-Address Code (TAC), developed as part of the BCSE307 Compiler Design project.
 
-A reusable, monotone data-flow analysis framework built over a Control-Flow Graph (CFG). The project combines a generic worklist solver, four pluggable data-flow analyses, a command-line interface, and a Streamlit dashboard for interactive analysis and CFG visualization.
-
-Provide a supported Three-Address Code (TAC) program, select an analysis, and inspect the resulting IN/OUT sets for each basic block. You can use the framework directly from the terminal or through the graphical dashboard.
-
-## Table of Contents
-
-- [Features](#features)
-- [Project Structure](#project-structure)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Running the Dashboard](#running-the-dashboard)
-- [Command-Line Usage](#command-line-usage)
-- [Supported Analyses](#supported-analyses)
-- [Example Walkthrough](#example-walkthrough)
-- [Writing Your Own TAC Programs](#writing-your-own-tac-programs)
-- [Testing](#testing)
-- [Architecture](#architecture)
-- [Extending the Framework](#extending-the-framework)
-
----
+The project provides a reusable data-flow analysis engine, a command-line interface (CLI), and a Streamlit dashboard for running analyses and visualizing Control Flow Graphs (CFGs).
 
 ## Features
 
-- **Generic worklist solver:** A reusable fixpoint engine that supports forward and backward data-flow analyses.
-- **Four classical analyses:** Reaching Definitions, Available Expressions, Live Variables, and Constant Propagation.
-- **Interactive Streamlit dashboard:** A graphical interface for selecting analyses, running the framework, and inspecting results.
-- **Control-flow graph visualization:** Generate and view CFGs using Graphviz.
-- **CFG export:** Export the control-flow graph in DOT format and download the generated graph image through the dashboard.
-- **Command-line interface:** Run analyses on TAC files, provide input through standard input, or enter programs interactively.
-- **Input validation:** Detect malformed instructions, invalid or duplicate labels, and undefined jump targets.
-- **Modular architecture:** Keep parsing, CFG construction, solving, analysis logic, and visualization in separate modules.
-- **Minimal core dependencies:** The analysis framework uses Python's standard library. Streamlit and Graphviz are additional requirements for the visual interface and graph rendering.
+- **Generic data-flow solver:** Supports forward and backward analyses using a worklist algorithm.
+- **Reaching Definitions:** Determines which variable definitions may reach each program point.
+- **Available Expressions:** Identifies expressions that are available at each program point.
+- **Live Variables:** Determines which variables may be used in the future before being reassigned.
+- **Constant Propagation:** Tracks constant values through a program.
+- **Streamlit dashboard:** Provides a graphical interface for selecting TAC examples and viewing analysis results.
+- **Control Flow Graph visualization:** Supports CFG generation and visualization using Graphviz.
+- **Command-line interface:** Run individual analyses or all supported analyses from the terminal.
+- **Input validation:** Handles invalid TAC instructions through parser validation and error reporting.
+- **Automated tests:** Includes unit and integration tests for verifying framework behavior.
 
 ## Project Structure
 
 ```text
 dataflow-analysis-framework/
-├── app.py                  # Streamlit dashboard
+├── app.py
 ├── dataflow/
-│   ├── ir.py               # Intermediate representation and TAC parser
-│   ├── cfg.py              # Basic-block and CFG construction
-│   ├── solver.py           # Generic worklist fixpoint solver
-│   ├── analyses.py         # Four data-flow analyses
-│   ├── visualizer.py       # Analysis output and DOT generation
-│   └── cli.py              # Command-line interface
+│   ├── ir.py
+│   ├── cfg.py
+│   ├── solver.py
+│   ├── analyses.py
+│   ├── visualizer.py
+│   └── cli.py
 ├── examples/
-│   ├── sequential.tac      # Straight-line program
-│   ├── branching.tac       # Conditional branches
-│   └── looping.tac         # Loop and back-edge
+│   ├── sequential.tac
+│   ├── branching.tac
+│   └── looping.tac
 ├── tests/
 │   ├── test_ir.py
 │   ├── test_cfg.py
@@ -58,264 +40,290 @@ dataflow-analysis-framework/
 │   ├── test_analyses.py
 │   ├── test_integration.py
 │   └── test_extended_coverage.py
-└── README.md
+├── README.md
+└── WORKDONE.md
 ```
 
-The exact test filenames may vary with the current repository version. The `app.py` dashboard uses the framework's CLI to run analyses and generate graph output.
+*This tree highlights the main project components. The exact file list may vary as the repository evolves.*
 
 ## Requirements
 
-- Python 3.10 or a compatible version supported by your installed packages.
-- Git, for cloning the repository.
-- Streamlit, for the graphical dashboard.
-- Graphviz, for rendering CFGs into images.
-- pytest, for running the test suite.
-
-The core CLI framework uses the Python standard library. Streamlit and Graphviz are needed for the graphical workflow.
+- Python 3
+- Git
+- Streamlit
+- Graphviz
+- pytest for running the test suite
 
 ## Installation
 
-Clone the repository and enter the project directory:
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/parnikakumar07/dataflow-analysis-framework.git
 cd dataflow-analysis-framework
 ```
 
-### 1. Create a virtual environment (recommended)
+### 2. Create and activate a virtual environment
 
-Windows PowerShell:
+**Windows PowerShell**
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-If activation is blocked by your PowerShell execution policy, you can use the virtual environment's Python executable directly instead.
+**Linux/macOS**
 
-### 2. Install Python packages
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install Python dependencies
 
 ```bash
 python -m pip install streamlit graphviz pytest
 ```
 
-The Python `graphviz` package provides the interface to Graphviz; it does not install the Graphviz system executable.
+If the repository includes a `requirements.txt` file, you can install its listed dependencies instead:
 
-### 3. Install Graphviz
+```bash
+python -m pip install -r requirements.txt
+```
 
-Install Graphviz separately using the official download page:
+### 4. Install Graphviz
+
+The Python `graphviz` package provides an interface to Graphviz, but rendering CFG images also requires the Graphviz system application and its `dot` executable.
+
+Download Graphviz from:
 
 https://graphviz.org/download/
 
-On Windows, ensure the Graphviz `bin` directory is available on your system PATH. Restart your terminal after changing PATH.
-
-Verify the installation:
+After installation, verify that it is available:
 
 ```bash
 dot -V
 ```
 
-If the command prints a Graphviz version, the executable is available to your terminal.
+If the command is not recognized, add Graphviz's `bin` directory to your system `PATH` and reopen your terminal.
 
-## Running the Dashboard
+## Running the Streamlit Dashboard
 
-From the repository root, run:
+From the project root, execute:
 
 ```bash
 streamlit run app.py
 ```
 
-Streamlit will start a local development server and provide a URL, typically:
+Streamlit will display a local URL, typically:
 
 ```text
 http://localhost:8501
 ```
 
-Open that address in your browser.
+Open the URL in your browser to access the dashboard.
 
-### Dashboard workflow
+### Dashboard Workflow
 
 1. Launch the Streamlit application.
-2. Select an available TAC example or provide supported TAC input, according to the options exposed by the dashboard.
-3. Choose one of the four analyses or the option to run all analyses.
-4. Run the analysis.
-5. Inspect the analysis output and the generated control-flow graph.
-6. Download the CFG image if needed.
+2. Select a TAC example from the available options.
+3. Choose the data-flow analysis to perform.
+4. Run the analysis and inspect the results.
+5. View the Control Flow Graph when available.
+6. Download the generated CFG image if the corresponding option is available.
 
-The dashboard relies on the repository's CLI and Graphviz installation. If graph rendering fails, verify that `dot -V` works and that the application is being launched from the repository environment.
+The dashboard provides a graphical way to explore the framework without relying exclusively on terminal commands.
 
-## Command-Line Usage
+## Running the CLI
 
-The framework can also be used without opening the dashboard.
+Run CLI commands from the project root.
 
-Run all four analyses:
+### Run all analyses
 
 ```bash
 python -m dataflow.cli examples/branching.tac
 ```
 
-Run one analysis:
+### Run Live Variables Analysis
 
 ```bash
 python -m dataflow.cli examples/looping.tac --analysis live
 ```
 
-Export the CFG as a DOT file:
+### Generate a CFG DOT file
 
 ```bash
 python -m dataflow.cli examples/branching.tac --dot cfg.dot
 ```
 
-Read a program from standard input:
+### Read TAC from standard input
 
 ```bash
 python -m dataflow.cli --stdin < examples/sequential.tac
 ```
 
-Enter a program interactively:
+### Start interactive mode
 
 ```bash
 python -m dataflow.cli
 ```
 
-When using interactive input, follow the CLI's instructions for terminating input.
-
-### CLI options
+### CLI Options
 
 | Option | Description |
 |---|---|
-| `tacfile` | Path to a TAC source file. |
-| `--stdin` | Read TAC from standard input. |
-| `--analysis` | Select the analysis to execute. |
-| `--dot PATH` | Write the control-flow graph to a DOT file. |
+| `tacfile` | Path to the TAC input file |
+| `--stdin` | Read TAC input from standard input |
+| `--analysis` | Select the analysis to execute |
+| `--dot PATH` | Write the Control Flow Graph in DOT format |
 
-Supported analysis flags are `reaching`, `available`, `live`, `constprop`, and `all`. The default analysis selection is `all`.
-
-## Supported Analyses
-
-| Analysis | CLI flag | Direction | Meet operator | Purpose |
-|---|---|---|---|---|
-| Reaching Definitions | `reaching` | Forward | Union (may) | Determines which variable definitions can reach a program point. |
-| Available Expressions | `available` | Forward | Intersection (must) | Identifies expressions already computed and still valid at a program point. |
-| Live Variables | `live` | Backward | Union (may) | Determines which variables may be used in the future before being redefined. |
-| Constant Propagation | `constprop` | Forward | Constant-propagation meet | Tracks variables that can be represented by known constant values. |
-
-## Example Walkthrough
-
-Consider the following straight-line program:
-
-```text
-x = 1
-y = 2
-z = x + y
-w = z
-return w
-```
-
-Save it as a `.tac` file or use the supplied `examples/sequential.tac` example.
-
-Run Constant Propagation:
+To check the analysis names and options accepted by the current CLI, run:
 
 ```bash
-python -m dataflow.cli examples/sequential.tac --analysis constprop
+python -m dataflow.cli --help
 ```
 
-The analysis tracks the known constant values as assignments are processed. For this program, the expected final values include `x = 1`, `y = 2`, `z = 3`, and `w = 3`, assuming the implementation's constant propagation transfer functions evaluate these expressions as expected.
+### Render a DOT file as a PNG image
 
-### Branching example
-
-```text
-x = 1
-y = 2
-if x < y goto L_true
-z = 99
-goto L_end
-L_true:
-z = x + y
-L_end:
-w = z
-return w
-```
-
-Run Reaching Definitions:
+If Graphviz is installed, convert the generated DOT file into an image:
 
 ```bash
-python -m dataflow.cli examples/branching.tac --analysis reaching
+dot -Tpng cfg.dot -o cfg.png
 ```
 
-At the merge point, both branch-specific definitions of `z` may reach the block. This illustrates why Reaching Definitions uses a union-based meet operator.
+## Supported Data-Flow Analyses
 
-## Writing Your Own TAC Programs
+### 1. Reaching Definitions
 
-The parser supports the following instruction forms, as documented by the project:
+- **Direction:** Forward
+- **Meet operator:** Union
+- **Purpose:** Determines which variable definitions may reach a program point without being overwritten along the way.
+
+### 2. Available Expressions
+
+- **Direction:** Forward
+- **Meet operator:** Intersection
+- **Purpose:** Identifies expressions that have already been computed and whose operands have not changed along the relevant paths.
+
+### 3. Live Variables
+
+- **Direction:** Backward
+- **Meet operator:** Union
+- **Purpose:** Determines whether a variable's current value may be used later before another assignment replaces it.
+
+### 4. Constant Propagation
+
+- **Direction:** Forward
+- **Purpose:** Tracks constant values assigned to variables and propagates known constants through the program where possible.
+
+## Three-Address Code (TAC)
+
+The framework operates on a simplified Three-Address Code representation.
+
+### Example
 
 ```text
-L1:                     label
-x = 5                   constant assignment
-x = y                   copy assignment
-x = y + z               binary operation
-x = -y                  unary negation
-if x < y goto L2        conditional jump
-goto L3                 unconditional jump
-return x                return statement
-# comment
+x = 5
+y = 10
+z = x + y
+if z > 10 goto L1
+z = 0
+L1:
+return z
 ```
 
-Supported binary operators include `+`, `-`, `*`, `/`, and `%`. Conditional comparisons include `==`, `!=`, `<`, `<=`, `>`, and `>=`.
+### Common Instruction Forms
 
-Labels must be valid and unique, and every jump target must refer to a defined label. Use the supplied examples as templates when creating new programs.
+| Instruction | Example | Purpose |
+|---|---|---|
+| Assignment | `x = 5` | Assign a constant |
+| Copy | `x = y` | Copy a variable value |
+| Binary operation | `x = y + z` | Compute an expression |
+| Unary negation | `x = -y` | Apply unary negation |
+| Conditional jump | `if x < y goto L1` | Branch based on a condition |
+| Unconditional jump | `goto L1` | Transfer control to a label |
+| Return | `return x` | Return a value |
+| Comment | `# comment` | Document the TAC program |
 
-## Testing
+The parser defines the exact supported operators and syntax. The example TAC files in the repository can be used as references for valid input.
 
-Install pytest if it is not already installed:
+## Running Tests
+
+Install pytest if it is not already available:
 
 ```bash
 python -m pip install pytest
 ```
 
-Run the complete test suite from the repository root:
+Run the complete test suite from the project root:
 
 ```bash
 python -m pytest -q
 ```
 
-The tests cover the parser, CFG construction, solver behavior, individual data-flow analyses, and CLI integration. The exact number of tests and their results depend on the current repository version; use the output from your latest local test run when reporting the verified count.
+To run a specific test file:
+
+```bash
+python -m pytest tests/test_solver.py -v
+```
+
+The test suite covers areas including intermediate-representation parsing, CFG construction, solver behavior, data-flow analyses, and integration functionality.
+
+**Previously reported test result: 256 tests passed.**
+
+This result reflects an earlier reported test run, not a newly verified run of the current repository. Test counts can change as the project evolves; rerun the complete suite to confirm the latest result.
 
 ## Architecture
 
-The framework separates the analysis pipeline into independent components.
-
 | Component | Responsibility |
 |---|---|
-| TAC parser (`ir.py`) | Parses source instructions into an intermediate representation. |
-| Basic-block builder (`cfg.py`) | Identifies leaders and groups instructions into basic blocks. |
-| CFG builder (`cfg.py`) | Constructs control-flow edges between blocks. |
-| Generic solver (`solver.py`) | Iteratively applies data-flow equations until a fixpoint is reached. |
-| Analysis modules (`analyses.py`) | Implement each analysis's direction, lattice operations, and transfer functions. |
-| Result visualizer (`visualizer.py`) | Formats analysis results and exports CFGs in DOT format. |
-| CLI (`cli.py`) | Exposes analysis execution and input/output options. |
-| Dashboard (`app.py`) | Provides a browser-based interface to run analyses and inspect their output. |
-
-The separation between the generic solver and the individual analysis implementations makes the framework extensible: the solver does not need to be rewritten for every new analysis.
+| `ir.py` | Represents and processes intermediate-representation instructions |
+| `cfg.py` | Constructs the Control Flow Graph |
+| `solver.py` | Executes the generic data-flow solving algorithm |
+| `analyses.py` | Implements the supported data-flow analyses |
+| `visualizer.py` | Supports CFG visualization and DOT output |
+| `cli.py` | Provides command-line execution |
+| `app.py` | Provides the Streamlit dashboard |
+| `tests/` | Contains automated tests |
 
 ## Extending the Framework
 
-To add a new data-flow analysis:
+The framework is designed to make it easier to introduce additional data-flow analyses.
 
-1. Implement a new analysis class using the framework's `DataFlowAnalysis` interface in `analyses.py`.
-2. Define the analysis direction.
-3. Implement its boundary value, top value, meet operation, and transfer function as required by the existing interface.
-4. Register the analysis in the CLI's analysis mapping.
-5. Add suitable unit and integration tests.
-6. Run the full test suite to check that existing behavior remains correct.
+A new analysis generally needs to define:
 
-The generic solver should remain independent of analysis-specific transfer functions and lattice operations. This is the central design principle of the framework.
+1. **Direction:** Forward or backward.
+2. **Boundary value:** The initial information at the relevant program boundary.
+3. **Top or initial value:** The starting value used by the solver.
+4. **Meet operator:** How information from predecessor or successor blocks is combined.
+5. **Transfer function:** How the analysis state changes when processing an instruction or basic block.
 
----
+Implement the new analysis using the abstractions already defined in `dataflow/analyses.py`, then register it with the CLI if required. Follow the existing classes and method signatures in the repository.
 
-## License and Contributions
+## Limitations
 
-This repository was developed as part of **BCSE307 Compiler Design — Project A34 — Team 9**.
+- The framework supports its implemented TAC representation rather than arbitrary source code.
+- Analysis results depend on the implemented transfer functions and lattice definitions.
+- CFG image rendering requires a working Graphviz installation.
+- The dashboard and CLI require the appropriate Python dependencies.
+- Supported analysis options and input syntax are determined by the current implementation.
 
-For contributions, create a feature branch, implement and test the change, and submit a pull request against `main`.
+## Contributing
 
+Contributions and improvements are welcome.
+
+Before submitting changes:
+
+1. Run the existing test suite.
+2. Add tests for new features and bug fixes.
+3. Update documentation when behavior or commands change.
+4. Ensure examples match the TAC syntax supported by the parser.
+
+## Academic Context
+
+- **Course:** BCSE307 – Compiler Design
+- **Project:** Generic Data-Flow Analysis Framework
+- **Team:** Team 9
+- **Project ID:** A34
+
+This project demonstrates classical data-flow analysis, reusable solving algorithms, Control Flow Graph construction, and analysis visualization through a command-line interface and a Streamlit dashboard.
