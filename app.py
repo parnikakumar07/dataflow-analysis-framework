@@ -22,8 +22,8 @@ EXAMPLES_DIR = ROOT / "examples"
 
 ANALYSES = {
     "All four analyses": None,
-    "Reaching Definitions": "rd",
-    "Available Expressions": "ae",
+    "Reaching Definitions": "reaching",
+    "Available Expressions": "available",
     "Live Variables": "live",
     "Constant Propagation": "constprop",
 }
