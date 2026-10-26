@@ -68,6 +68,31 @@ them (`test_ir.py`, `test_analyses.py`).
 solver mechanics, per-analysis correctness — + 8 integration tests).
 - **Next:** Review 3 report/demo-sequence integration work.
 
+**2026-10-26**
+- Reviewed and verified the changes Amrutha, Khushi, and Jani merged into
+`main` via PRs #1–#6 on 2026-10-25: Amrutha's duplicate-label detection
+and stricter parser/CFG validation; Khushi's backward-solver fix plus 187
+parameterized regression tests and the new Streamlit dashboard
+(`app.py`); Jani's hand-derived analysis-correctness tests. Confirmed
+live (not just from commit messages) that the backward-solver fix
+changes real output: Live Variables on `branching.tac`/`looping.tac` now
+converges in 7/11 steps.
+- Found and fixed one real bug via TDD in the Streamlit dashboard:
+`app.py`'s `ANALYSES` dict sent `--analysis rd` / `--analysis ae` to the
+CLI, but `dataflow/cli.py` only accepts `reaching`/`available`/`live`/
+`constprop`/`all` — so picking "Reaching Definitions" or "Available
+Expressions" in the dashboard failed with an argparse error instead of
+running. Added `tests/test_app_integration.py` (RED: failed against the
+unmodified `app.py`, skips cleanly if `streamlit` isn't installed since
+it's an optional dependency), fixed the two alias strings (GREEN), reran
+the full suite to confirm nothing else broke.
+- **Full suite status: 257/257 tests passing.**
+- Logged Jani's 2026-10-25 entry below on her behalf — she's unwell and
+asked me to record it for her.
+- **Next:** performance evaluation on larger synthetic CFGs (Khushi,
+still open) and a full-team live-demo rehearsal (all members, still
+open) — see the objective-compliance / Review 2 closure document.
+
 
 ## Amrutha — TAC Parsing / IR / CFG Construction
 
@@ -101,7 +126,24 @@ solver mechanics, per-analysis correctness — + 8 integration tests).
 
 ## Jani — Four Analyses — Correctness & Demonstration
 
-_(add your entries here)_
+**2026-10-25** (logged by Parnika on Jani's behalf — Jani is unwell)
+- Added 15 hand-derived correctness tests across all four analyses in
+`tests/test_analyses.py` (commit `2098a38`): same-block redefinition
+killing an earlier reaching definition; definitions from different
+predecessors both reaching a merge block; a definition killed on only
+one path while surviving on the other; loop back-edge definitions
+reaching the loop header; `AvailableExpressions` invalidated by either
+operand being redefined (including through the canonical commutative
+key added earlier this week); a loop-invariant expression staying
+available around a loop; `LiveVariables` checked directly against the
+USE/DEF equations (not just against the solver's own output) on both
+`branching.tac` and `looping.tac`; and `ConstantPropagation`
+reassignment and equal-value-merge cases.
+- Verified against `examples/branching.tac` / `examples/looping.tac`
+plus hand-traced inline TAC snippets with the expected GEN/KILL/USE/DEF
+sets worked out in comments.
+- **Next:** prepare the 3 demonstration examples with expected results
+(per the Review 3 work-split plan).
 
 ---
 
