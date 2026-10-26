@@ -126,7 +126,7 @@ open) — see the objective-compliance / Review 2 closure document.
 
 ## Jani — Four Analyses — Correctness & Demonstration
 
-**2026-10-25** (logged by Parnika on Jani's behalf — Jani is unwell)
+**2026-10-25** 
 - Added 15 hand-derived correctness tests across all four analyses in
 `tests/test_analyses.py` (commit `2098a38`): same-block redefinition
 killing an earlier reaching definition; definitions from different
